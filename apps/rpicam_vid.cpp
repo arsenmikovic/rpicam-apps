@@ -85,6 +85,19 @@ static void event_loop(RPiCamEncoder &app)
 	signal(SIGPIPE, default_signal_handler);
 	pollfd p[1] = { { STDIN_FILENO, POLLIN, 0 } };
 
+	libcamera::ControlList cl;
+	if (options->sync == 0) {
+		cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeOff);
+		app.SetControls(cl);
+	} else if (options->sync == 1) {
+		cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeServer);
+		app.SetControls(cl);
+	} else if (options->sync == 2) {
+		cl.set(libcamera::controls::rpi::SyncMode, libcamera::controls::rpi::SyncModeClient);
+		app.SetControls(cl);
+	}
+
+
 	for (unsigned int count = 0; ; count++)
 	{
 		RPiCamEncoder::Msg msg = app.Wait();
@@ -117,9 +130,18 @@ static void event_loop(RPiCamEncoder &app)
 			app.StopEncoder();
 			return;
 		}
-
 		CompletedRequestPtr &completed_request = std::get<CompletedRequestPtr>(msg.payload);
-		app.EncodeBuffer(completed_request, app.VideoStream());
+		if (options->sync == 0) {
+			app.EncodeBuffer(completed_request, app.VideoStream());
+		} else {
+			auto wait = completed_request->metadata.get(controls::rpi::SyncWait);
+			if (wait) {
+				bool syncWait = *wait;
+				if (!syncWait) {
+					app.EncodeBuffer(completed_request, app.VideoStream());
+				}
+			}
+		}
 		app.ShowPreview(completed_request, app.VideoStream());
 	}
 }

@@ -158,6 +158,8 @@ struct VideoOptions : public Options
 			("av-sync", value<std::string>(&av_sync_)->default_value("0us"),
 			 "Add a time offset (in microseconds if no units provided) to the audio stream, relative to the video stream. "
 			 "The offset value can be either positive or negative.")
+			 ("sync", value<std::string>(&sync_)->default_value("off"),
+			 "Provides sync information. ")
 #endif
 			;
 		// clang-format on
@@ -191,6 +193,7 @@ struct VideoOptions : public Options
 	uint32_t segment;
 	size_t circular;
 	uint32_t frames;
+	uint32_t sync;
 
 	virtual bool Parse(int argc, char *argv[]) override
 	{
@@ -235,6 +238,15 @@ struct VideoOptions : public Options
 			level = "4.2";
 		}
 
+		if (strcasecmp(sync_.c_str(), "off") == 0)
+			sync = 0;
+		else if (strcasecmp(sync_.c_str(), "server") == 0)
+			sync = 1;
+		else if (strcasecmp(sync_.c_str(), "client") == 0)
+			sync = 2;
+		else
+			throw std::runtime_error("incorrect sync value " + sync_);
+
 		return true;
 	}
 	virtual void Print() const override
@@ -261,5 +273,6 @@ private:
 #if LIBAV_PRESENT
 	std::string av_sync_;
 	std::string audio_bitrate_;
+	std::string sync_;
 #endif /* LIBAV_PRESENT */
 };
